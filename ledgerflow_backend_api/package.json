@@ -12,7 +12,7 @@
         "prisma:migrate": "prisma migrate dev --name init",
         "prisma:deploy": "prisma migrate deploy",
         "prisma:studio": "prisma studio",
-        "db:seed": "node prisma/seed.js || echo 'No seed script found; skipping...'"
+        "db:seed": "node prisma/seed.js"
     },
     "dependencies": {
         "@prisma/client": "^6.15.0",
