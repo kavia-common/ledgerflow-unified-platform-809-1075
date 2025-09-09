@@ -3,6 +3,7 @@ const healthController = require('../controllers/health');
 const authRoutes = require('./auth');
 const workspaceRoutes = require('./workspaces');
 const projectsRoutes = require('./projects');
+const permissionsRoutes = require('./permissions');
 
 const router = express.Router();
 // Health endpoint
@@ -41,5 +42,8 @@ router.use('/auth', authRoutes);
 // Mount workspaces and nested projects
 router.use('/workspaces', workspaceRoutes);
 router.use('/workspaces/:workspaceId/projects', projectsRoutes);
+
+// Mount permissions-related routes
+router.use('/', permissionsRoutes);
 
 module.exports = router;
