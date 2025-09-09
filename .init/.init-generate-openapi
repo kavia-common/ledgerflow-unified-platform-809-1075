@@ -1,0 +1,4 @@
+{
+    "command": "npm install && node generate_openapi.js",
+    "working_directory": "/home/kavia/workspace/code-generation/ledgerflow-unified-platform-809-1075/ledgerflow_backend_api"
+}
