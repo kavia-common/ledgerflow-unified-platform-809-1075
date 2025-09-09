@@ -7,6 +7,7 @@ const permissionsRoutes = require('./permissions');
 const environmentsRoutes = require('./environments');
 const ciRunsRoutes = require('./ciRuns');
 const githubRoutes = require('./github');
+const settingsRoutes = require('./settings');
 
 const router = express.Router();
 // Health endpoint
@@ -54,6 +55,9 @@ router.use('/workspaces/:workspaceId/projects/:projectId/ci-runs', ciRunsRoutes)
 
 /* Mount GitHub integration nested under projects */
 router.use('/workspaces/:workspaceId/projects/:projectId/github', githubRoutes);
+
+/* Mount settings routes (global and workspace-scoped) */
+router.use('/', settingsRoutes);
 
 /* Mount permissions-related routes */
 router.use('/', permissionsRoutes);

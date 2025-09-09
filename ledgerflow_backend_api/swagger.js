@@ -27,6 +27,7 @@ const options = {
       { name: 'Environments', description: 'Manage dev/staging/production environment metadata and configuration' },
       { name: 'CI', description: 'Continuous Integration run status and results' },
       { name: 'GitHub', description: 'GitHub integration for linking repositories and receiving webhooks' },
+      { name: 'Settings', description: 'Manage API tokens and access control' },
     ],
   },
   apis: ['./src/routes/*.js'], // Path to the API docs
