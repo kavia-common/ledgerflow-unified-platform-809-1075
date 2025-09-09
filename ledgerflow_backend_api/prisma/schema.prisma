@@ -1,0 +1,247 @@
+//
+// Prisma Schema for LedgerFlow Pro Backend (MySQL)
+// This schema defines models for User, Workspace, Project, Membership (role),
+// Permission, Environment, CiRun, GitHubRepoLink, ApiToken, and Session/RefreshToken.
+//
+// Notes:
+// - Uses MySQL provider; adjust the `env("DATABASE_URL")` variable in .env.
+// - Composite unique constraints ensure consistent relationships (e.g., one repo link per project).
+// - Soft deletes can be implemented later by adding deletedAt fields if needed.
+// - Indexes are provided for frequently queried fields.
+// - Role enumeration drives membership authorization.
+//
+// IMPORTANT ENV VAR (not set here):
+// - DATABASE_URL=mysql://USER:PASSWORD@HOST:PORT/DB
+//
+
+// Datasource and generator
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----- Enums -----
+
+enum Role {
+  OWNER
+  ADMIN
+  MAINTAINER
+  DEVELOPER
+  VIEWER
+}
+
+enum CiStatus {
+  QUEUED
+  RUNNING
+  PASSED
+  FAILED
+  CANCELED
+}
+
+enum EnvironmentType {
+  DEVELOPMENT
+  STAGING
+  PRODUCTION
+}
+
+// ----- Models -----
+
+model User {
+  id              String          @id @default(cuid()) @db.VarChar(191)
+  email           String          @unique @db.VarChar(191)
+  // For email/password auth; can be null if SSO-only
+  passwordHash    String?         @db.VarChar(255)
+  name            String?         @db.VarChar(191)
+  imageUrl        String?         @db.VarChar(512)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  memberships     Membership[]
+  ownedWorkspaces Workspace[]     @relation("WorkspaceOwner")
+  sessions        Session[]
+  apiTokens       ApiToken[]
+  ciRunsTriggered CiRun[]         @relation("CiTriggeredBy")
+
+  @@index([email])
+}
+
+model Workspace {
+  id          String        @id @default(cuid()) @db.VarChar(191)
+  name        String        @db.VarChar(191)
+  slug        String        @unique @db.VarChar(191)
+  description String?       @db.VarChar(512)
+  ownerId     String        @db.VarChar(191)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  owner       User          @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  projects    Project[]
+  members     Membership[]
+
+  @@index([ownerId])
+  @@index([slug])
+}
+
+model Project {
+  id           String        @id @default(cuid()) @db.VarChar(191)
+  workspaceId  String        @db.VarChar(191)
+  name         String        @db.VarChar(191)
+  slug         String        @db.VarChar(191)
+  description  String?       @db.VarChar(512)
+  defaultBranch String?      @db.VarChar(128)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  // Relations
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  environments Environment[]
+  ciRuns       CiRun[]
+  githubLink   GitHubRepoLink?
+  permissions  Permission[]
+
+  @@unique([workspaceId, slug], name: "workspace_slug_unique")
+  @@index([workspaceId])
+}
+
+model Membership {
+  // Membership of a user in a workspace with a role
+  id           String     @id @default(cuid()) @db.VarChar(191)
+  userId       String     @db.VarChar(191)
+  workspaceId  String     @db.VarChar(191)
+  role         Role       @default(VIEWER)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Relations
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace    Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId], name: "user_workspace_unique")
+  @@index([userId])
+  @@index([workspaceId])
+}
+
+model Permission {
+  // Fine-grained permission assignments for a user within a project context
+  id          String    @id @default(cuid()) @db.VarChar(191)
+  userId      String    @db.VarChar(191)
+  projectId   String    @db.VarChar(191)
+  canRead     Boolean   @default(true)
+  canWrite    Boolean   @default(false)
+  canExecute  Boolean   @default(false)
+  canAdmin    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId], name: "user_project_unique")
+  @@index([userId])
+  @@index([projectId])
+}
+
+model Environment {
+  id           String           @id @default(cuid()) @db.VarChar(191)
+  projectId    String           @db.VarChar(191)
+  name         String           @db.VarChar(191) // e.g., "Development", "Staging", "Production"
+  type         EnvironmentType
+  url          String?          @db.VarChar(512)
+  status       String?          @db.VarChar(64)  // e.g., "healthy", "degraded"
+  configJson   Json?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  // Relations
+  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ciRuns       CiRun[]
+
+  @@unique([projectId, name], name: "project_environment_name_unique")
+  @@index([projectId])
+  @@index([type])
+}
+
+model CiRun {
+  id             String      @id @default(cuid()) @db.VarChar(191)
+  projectId      String      @db.VarChar(191)
+  environmentId  String?     @db.VarChar(191)
+  status         CiStatus
+  commitSha      String?     @db.VarChar(64)
+  branch         String?     @db.VarChar(128)
+  startedAt      DateTime    @default(now())
+  finishedAt     DateTime?
+  logsUrl        String?     @db.VarChar(512)
+  triggeredById  String?     @db.VarChar(191)
+
+  // Relations
+  project        Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  environment    Environment? @relation(fields: [environmentId], references: [id], onDelete: SetNull)
+  triggeredBy    User?       @relation("CiTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([environmentId])
+  @@index([status])
+  @@index([triggeredById])
+}
+
+model GitHubRepoLink {
+  id             String   @id @default(cuid()) @db.VarChar(191)
+  projectId      String   @unique @db.VarChar(191)
+  installationId BigInt?  // GitHub App installation ID, if using GitHub App
+  repoOwner      String   @db.VarChar(191) // e.g., "org" or "user"
+  repoName       String   @db.VarChar(191) // e.g., "repository"
+  repoId         BigInt?  // Numeric GitHub repository ID
+  defaultBranch  String?  @db.VarChar(128)
+  webhookSecret  String?  @db.VarChar(255)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([repoOwner, repoName], name: "unique_github_repo")
+  @@index([repoId])
+}
+
+model ApiToken {
+  id            String    @id @default(cuid()) @db.VarChar(191)
+  userId        String    @db.VarChar(191)
+  name          String    @db.VarChar(191)     // Token label for UI
+  tokenHash     String    @db.VarChar(255)     // Store only a hash for security
+  scopes        String[]  @db.Text             // e.g., ["read:ci", "write:project"]
+  lastUsedAt    DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Session {
+  // Access token/session record with refresh token support
+  id               String    @id @default(cuid()) @db.VarChar(191)
+  userId           String    @db.VarChar(191)
+  sessionToken     String    @unique @db.VarChar(255)
+  refreshTokenHash String    @db.VarChar(255)
+  userAgent        String?   @db.VarChar(255)
+  ipAddress        String?   @db.VarChar(64)
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+
+  // Relations
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
