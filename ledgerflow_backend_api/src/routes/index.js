@@ -5,6 +5,7 @@ const workspaceRoutes = require('./workspaces');
 const projectsRoutes = require('./projects');
 const permissionsRoutes = require('./permissions');
 const environmentsRoutes = require('./environments');
+const ciRunsRoutes = require('./ciRuns');
 
 const router = express.Router();
 // Health endpoint
@@ -46,6 +47,9 @@ router.use('/workspaces/:workspaceId/projects', projectsRoutes);
 
 /* Mount environments nested under projects */
 router.use('/workspaces/:workspaceId/projects/:projectId/environments', environmentsRoutes);
+
+/* Mount CI runs nested under projects */
+router.use('/workspaces/:workspaceId/projects/:projectId/ci-runs', ciRunsRoutes);
 
 /* Mount permissions-related routes */
 router.use('/', permissionsRoutes);
