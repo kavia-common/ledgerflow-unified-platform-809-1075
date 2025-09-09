@@ -19,6 +19,11 @@ const options = {
       },
     },
     security: [],
+    tags: [
+      { name: 'Auth', description: 'Authentication and session management' },
+      { name: 'Workspaces', description: 'Workspace management' },
+      { name: 'Projects', description: 'Project management within workspaces' },
+    ],
   },
   apis: ['./src/routes/*.js'], // Path to the API docs
 };
