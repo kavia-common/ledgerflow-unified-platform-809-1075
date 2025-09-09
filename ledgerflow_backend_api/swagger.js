@@ -7,7 +7,18 @@ const options = {
       title: 'My Express API',
       version: '1.0.0',
       description: 'A simple Express API documented with Swagger',
-    }
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Enter JWT access token',
+        },
+      },
+    },
+    security: [],
   },
   apis: ['./src/routes/*.js'], // Path to the API docs
 };
